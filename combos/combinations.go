@@ -1,7 +1,9 @@
 // Package combinations provides a method to generate all combinations out of a given string array.
-package combinations
+package combos
 
-import "math/bits"
+import (
+	"math/bits"
+)
 
 // All returns all combinations for a given string array.
 // This is essentially a powerset of the given set except that the empty set is disregarded.
@@ -57,4 +59,41 @@ func Combinations(set []string, n int) (subsets [][]string) {
 		subsets = append(subsets, subset)
 	}
 	return subsets
+}
+
+func CombinationsGenerator(abort <-chan struct{}, set []string, n int) <-chan []string {
+	ch := make(chan []string)
+	length := uint(len(set))
+
+	go func() {
+		defer close(ch)
+
+		if n > len(set) {
+			n = len(set)
+		}
+
+		for subsetBits := 1; subsetBits < (1 << length); subsetBits++ {
+			if n > 0 && bits.OnesCount(uint(subsetBits)) != n {
+				continue
+			}
+
+			var subset []string
+
+			for object := uint(0); object < length; object++ {
+				// checks if object is contained in subset
+				// by checking if bit 'object' is set in subsetBits
+				if (subsetBits>>object)&1 == 1 {
+					subset = append(subset, set[object])
+				}
+			}
+
+			select {
+			case ch <- subset:
+			case <-abort:
+				return
+			}
+		}
+	}()
+
+	return ch
 }
